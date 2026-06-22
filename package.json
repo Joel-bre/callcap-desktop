@@ -1,0 +1,69 @@
+{
+  "name": "callcap-desktop",
+  "version": "0.1.0",
+  "description": "Callcap desktop recorder",
+  "main": "src/main.cjs",
+  "author": "Callcap",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "publish": "electron-builder --publish always"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "build": {
+    "appId": "app.callcap.recorder",
+    "productName": "Callcap",
+    "asar": true,
+    "files": [
+      "src/**/*",
+      "build/**/*",
+      "package.json"
+    ],
+    "protocols": [
+      {
+        "name": "Callcap",
+        "schemes": ["callcap"]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "artifactName": "Callcap.${ext}"
+    },
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "artifactName": "Callcap-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "linux": {
+      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "category": "AudioVideo",
+      "artifactName": "Callcap.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "callcap",
+      "repo": "desktop"
+    }
+  }
+}

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>Callcap</title>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0; padding: 32px; line-height: 1.5;
+      background: #0f172a; color: #f8fafc;
+    }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { color: #94a3b8; font-size: 13px; margin-bottom: 24px; }
+    .card {
+      background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+      padding: 20px; margin-bottom: 16px;
+    }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #64748b; }
+    .dot.ok { background: #22c55e; }
+    button {
+      background: #3b82f6; color: white; border: 0; border-radius: 8px;
+      padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer;
+      width: 100%; margin-top: 12px;
+    }
+    button:hover { background: #2563eb; }
+    button.ghost { background: transparent; border: 1px solid #334155; color: #cbd5e1; }
+    button.ghost:hover { background: #334155; }
+    .muted { color: #94a3b8; font-size: 12px; margin-top: 8px; }
+    code { background: #0f172a; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Callcap recorder</h1>
+  <div class="sub" id="version"></div>
+
+  <div class="card">
+    <div class="row">
+      <div class="dot" id="dot"></div>
+      <div>
+        <div id="status-title">Not paired</div>
+        <div class="muted" id="status-sub">Connect this app to your Callcap account.</div>
+      </div>
+    </div>
+    <button id="pair-btn">Pair with my account</button>
+    <button id="unpair-btn" class="ghost" style="display:none">Unpair</button>
+  </div>
+
+  <div class="card">
+    <strong>How it works</strong>
+    <div class="muted" style="margin-top:8px">
+      Click <em>Pair with my account</em> to open your Callcap dashboard in the browser.
+      Confirm pairing there, and this app will receive a secure token to upload recordings.
+    </div>
+  </div>
+
+  <script>
+    const dot = document.getElementById("dot");
+    const title = document.getElementById("status-title");
+    const sub = document.getElementById("status-sub");
+    const pairBtn = document.getElementById("pair-btn");
+    const unpairBtn = document.getElementById("unpair-btn");
+    const versionEl = document.getElementById("version");
+
+    async function refresh() {
+      const s = await window.callcap.getStatus();
+      versionEl.textContent = "v" + s.version;
+      if (s.paired) {
+        dot.classList.add("ok");
+        title.textContent = "Paired" + (s.label ? ` — ${s.label}` : "");
+        sub.textContent = s.pairedAt ? `Connected ${new Date(s.pairedAt).toLocaleString()}` : "Ready to record.";
+        pairBtn.textContent = "Re-pair";
+        unpairBtn.style.display = "block";
+      } else {
+        dot.classList.remove("ok");
+        title.textContent = "Not paired";
+        sub.textContent = "Connect this app to your Callcap account.";
+        pairBtn.textContent = "Pair with my account";
+        unpairBtn.style.display = "none";
+      }
+    }
+
+    pairBtn.addEventListener("click", () => window.callcap.openDashboard());
+    unpairBtn.addEventListener("click", async () => { await window.callcap.unpair(); refresh(); });
+    window.callcap.onPaired(() => refresh());
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>
