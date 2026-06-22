@@ -1,6 +1,6 @@
 {
   "name": "callcap-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Callcap desktop recorder",
   "main": "src/main.cjs",
   "author": "Callcap",
@@ -27,7 +27,6 @@
     "asar": true,
     "files": [
       "src/**/*",
-      "build/**/*",
       "package.json"
     ],
     "protocols": [
@@ -39,10 +38,6 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
       "artifactName": "Callcap.${ext}"
     },
     "win": {
@@ -62,8 +57,8 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "callcap",
-      "repo": "desktop"
+      "owner": "Joel-bre",
+      "repo": "callcap-desktop"
     }
   }
 }
