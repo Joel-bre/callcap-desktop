@@ -37,7 +37,7 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "target": [{ "target": "zip", "arch": ["x64", "arm64"] }],
       "artifactName": "Callcap.${ext}"
     },
     "win": {
