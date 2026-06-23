@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; media-src 'self' blob:" />
   <title>Callcap</title>
   <style>
     :root { color-scheme: light dark; }
@@ -18,19 +18,31 @@
       background: #1e293b; border: 1px solid #334155; border-radius: 12px;
       padding: 20px; margin-bottom: 16px;
     }
+    .card.disabled { opacity: 0.5; pointer-events: none; }
     .row { display: flex; align-items: center; gap: 12px; }
     .dot { width: 10px; height: 10px; border-radius: 50%; background: #64748b; }
     .dot.ok { background: #22c55e; }
+    .dot.rec { background: #ef4444; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
     button {
       background: #3b82f6; color: white; border: 0; border-radius: 8px;
       padding: 10px 16px; font-size: 14px; font-weight: 500; cursor: pointer;
       width: 100%; margin-top: 12px;
     }
     button:hover { background: #2563eb; }
+    button:disabled { background: #475569; cursor: not-allowed; }
     button.ghost { background: transparent; border: 1px solid #334155; color: #cbd5e1; }
     button.ghost:hover { background: #334155; }
+    button.danger { background: #ef4444; }
+    button.danger:hover { background: #dc2626; }
+    label.field { display: block; font-size: 12px; color: #94a3b8; margin: 12px 0 4px; }
+    select {
+      width: 100%; padding: 8px; border-radius: 8px; background: #0f172a;
+      color: #f8fafc; border: 1px solid #334155; font-size: 13px;
+    }
     .muted { color: #94a3b8; font-size: 12px; margin-top: 8px; }
-    code { background: #0f172a; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    .timer { font-variant-numeric: tabular-nums; font-size: 28px; font-weight: 600; margin: 4px 0; }
+    strong { font-size: 14px; }
   </style>
 </head>
 <body>
@@ -49,45 +61,31 @@
     <button id="unpair-btn" class="ghost" style="display:none">Unpair</button>
   </div>
 
-  <div class="card">
+  <div class="card disabled" id="record-card">
+    <strong>Record</strong>
+    <label class="field" for="device">Microphone</label>
+    <select id="device"><option>Default</option></select>
+
+    <div class="row" style="margin-top:16px">
+      <div class="dot" id="rec-dot"></div>
+      <div class="timer" id="timer">00:00</div>
+    </div>
+
+    <button id="record-btn">Start recording</button>
+    <button id="open-meeting-btn" class="ghost" style="display:none">Open meeting in browser</button>
+    <div class="muted" id="rec-status"></div>
+  </div>
+
+  <div class="card" id="help-card">
     <strong>How it works</strong>
     <div class="muted" style="margin-top:8px">
       Click <em>Pair with my account</em> to open your Callcap dashboard in the browser.
-      Confirm pairing there, and this app will receive a secure token to upload recordings.
+      Confirm pairing there and this app receives a secure token. Then pick a microphone,
+      record your call, and click Stop — the recording uploads and transcription starts
+      automatically.
     </div>
   </div>
 
-  <script>
-    const dot = document.getElementById("dot");
-    const title = document.getElementById("status-title");
-    const sub = document.getElementById("status-sub");
-    const pairBtn = document.getElementById("pair-btn");
-    const unpairBtn = document.getElementById("unpair-btn");
-    const versionEl = document.getElementById("version");
-
-    async function refresh() {
-      const s = await window.callcap.getStatus();
-      versionEl.textContent = "v" + s.version;
-      if (s.paired) {
-        dot.classList.add("ok");
-        title.textContent = "Paired" + (s.label ? ` — ${s.label}` : "");
-        sub.textContent = s.pairedAt ? `Connected ${new Date(s.pairedAt).toLocaleString()}` : "Ready to record.";
-        pairBtn.textContent = "Re-pair";
-        unpairBtn.style.display = "block";
-      } else {
-        dot.classList.remove("ok");
-        title.textContent = "Not paired";
-        sub.textContent = "Connect this app to your Callcap account.";
-        pairBtn.textContent = "Pair with my account";
-        unpairBtn.style.display = "none";
-      }
-    }
-
-    pairBtn.addEventListener("click", () => window.callcap.openDashboard());
-    unpairBtn.addEventListener("click", async () => { await window.callcap.unpair(); refresh(); });
-    window.callcap.onPaired(() => refresh());
-    refresh();
-    setInterval(refresh, 3000);
-  </script>
+  <script src="./app.js"></script>
 </body>
 </html>

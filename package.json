@@ -1,6 +1,6 @@
 {
   "name": "callcap-desktop",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "description": "Callcap desktop recorder",
   "main": "src/main.cjs",
   "author": "Callcap",
@@ -25,6 +25,9 @@
     "appId": "app.callcap.recorder",
     "productName": "Callcap",
     "asar": true,
+    "directories": {
+      "buildResources": "build"
+    },
     "files": [
       "src/**/*",
       "package.json"
@@ -38,11 +41,22 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [{ "target": "zip", "arch": ["x64", "arm64"] }],
-      "artifactName": "Callcap.${ext}"
+      "artifactName": "Callcap.${ext}",
+      "icon": "build/icon.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": true,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Callcap records your call audio to transcribe and summarize your meetings."
+      }
     },
     "win": {
       "target": [{ "target": "nsis", "arch": ["x64"] }],
-      "artifactName": "Callcap-Setup.${ext}"
+      "artifactName": "Callcap-Setup.${ext}",
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
@@ -53,12 +67,14 @@
     "linux": {
       "target": [{ "target": "AppImage", "arch": ["x64"] }],
       "category": "AudioVideo",
-      "artifactName": "Callcap.${ext}"
+      "artifactName": "Callcap.${ext}",
+      "icon": "build/icon.png"
     },
     "publish": {
       "provider": "github",
       "owner": "Joel-bre",
-      "repo": "callcap-desktop"
+      "repo": "callcap-desktop",
+      "releaseType": "release"
     }
   }
 }

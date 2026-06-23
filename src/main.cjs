@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, shell, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, shell, dialog, safeStorage } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
@@ -6,6 +6,7 @@ const { autoUpdater } = require("electron-updater");
 // Edit if your dashboard moves.
 const CALLCAP_BASE_URL = "https://callcap.lovable.app";
 const PAIR_ENDPOINT = `${CALLCAP_BASE_URL}/api/public/recorder/pair`;
+const UPLOAD_ENDPOINT = `${CALLCAP_BASE_URL}/api/public/recorder/upload`;
 
 const PROTOCOL = "callcap";
 
@@ -25,6 +26,30 @@ if (process.defaultApp) {
 }
 
 // --- config (device token) -----------------------------------------------
+//
+// The device token is the long-lived upload credential. It is stored
+// encrypted with the OS keychain via safeStorage when available, and is
+// never logged or exposed to the renderer.
+
+const ENC_PREFIX = "enc:";
+
+function encryptSecret(value) {
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      return ENC_PREFIX + safeStorage.encryptString(value).toString("base64");
+    }
+  } catch {
+    /* fall through to plaintext */
+  }
+  return value;
+}
+
+function decryptSecret(stored) {
+  if (typeof stored === "string" && stored.startsWith(ENC_PREFIX)) {
+    return safeStorage.decryptString(Buffer.from(stored.slice(ENC_PREFIX.length), "base64"));
+  }
+  return stored;
+}
 
 function configPath() {
   return path.join(app.getPath("userData"), "config.json");
@@ -36,6 +61,11 @@ function writeConfig(cfg) {
   fs.mkdirSync(path.dirname(configPath()), { recursive: true });
   fs.writeFileSync(configPath(), JSON.stringify(cfg, null, 2));
 }
+function getDeviceToken() {
+  const cfg = readConfig();
+  if (!cfg.device_token) return null;
+  try { return decryptSecret(cfg.device_token); } catch { return null; }
+}
 
 // --- window --------------------------------------------------------------
 
@@ -44,7 +74,7 @@ let mainWindow = null;
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 520,
-    height: 640,
+    height: 680,
     title: "Callcap",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -52,6 +82,13 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  // Allow microphone capture for the recorder; deny everything else.
+  const ses = mainWindow.webContents.session;
+  const allow = (p) => p === "media" || p === "audioCapture" || p === "microphone";
+  ses.setPermissionRequestHandler((_wc, permission, callback) => callback(allow(permission)));
+  ses.setPermissionCheckHandler((_wc, permission) => allow(permission));
+
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
   mainWindow.on("closed", () => { mainWindow = null; });
 }
@@ -73,13 +110,13 @@ async function exchangePairingToken(pairingToken) {
   if (!res.ok) throw new Error(`Pairing failed (${res.status}): ${await res.text()}`);
   const json = await res.json();
   const cfg = readConfig();
-  cfg.device_token = json.device_token;
-  cfg.upload_url = json.upload_url;
+  cfg.device_token = encryptSecret(json.device_token);
+  cfg.upload_url = json.upload_url || UPLOAD_ENDPOINT;
   cfg.label = json.label;
   cfg.paired_at = new Date().toISOString();
   writeConfig(cfg);
   sendToRenderer("paired", { label: json.label });
-  return json;
+  return { label: json.label };
 }
 
 function handleProtocolUrl(url) {
@@ -92,7 +129,7 @@ function handleProtocolUrl(url) {
       dialog.showErrorBox("Pairing failed", err.message);
     });
   } catch (err) {
-    console.error("Bad protocol URL", url, err);
+    console.error("Bad protocol URL", url);
   }
 }
 
@@ -125,7 +162,40 @@ ipcMain.handle("get-status", () => {
 });
 
 ipcMain.handle("open-dashboard", () => shell.openExternal(`${CALLCAP_BASE_URL}/pair`));
+ipcMain.handle("open-meeting", (_e, meetingId) => {
+  if (typeof meetingId === "string" && meetingId) {
+    return shell.openExternal(`${CALLCAP_BASE_URL}/meetings/${encodeURIComponent(meetingId)}`);
+  }
+});
 ipcMain.handle("unpair", () => { writeConfig({}); return true; });
+
+// Upload a recording. The renderer captures audio and hands us the raw
+// bytes; we attach the bearer token (kept out of the renderer) and POST
+// multipart/form-data to the upload endpoint. The server starts the
+// transcription pipeline automatically on upload, so there is no separate
+// /process call to make here.
+ipcMain.handle("upload-recording", async (_e, { buffer, mimeType, title, startedAt }) => {
+  const token = getDeviceToken();
+  if (!token) throw new Error("Not paired — pair this device first.");
+
+  const cfg = readConfig();
+  const uploadUrl = cfg.upload_url || UPLOAD_ENDPOINT;
+
+  const form = new FormData();
+  const blob = new Blob([Buffer.from(buffer)], { type: mimeType || "audio/webm" });
+  form.append("audio", blob, "recording.webm");
+  if (title) form.append("title", String(title));
+  if (startedAt) form.append("started_at", String(startedAt));
+
+  const res = await fetch(uploadUrl, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
+  const json = await res.json();
+  return { meeting_id: json.meeting_id };
+});
 
 // --- lifecycle -----------------------------------------------------------
 
