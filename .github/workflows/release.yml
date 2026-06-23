@@ -5,32 +5,80 @@ on:
     tags:
       - 'v*'
 
+# electron-builder needs to create the GitHub Release and upload assets.
+permissions:
+  contents: write
+
 jobs:
-  release:
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-
+  # Decide whether the macOS signing/notarization secrets are present.
+  # Without them we SKIP the macOS job (rather than fail it) so Windows can
+  # still ship. See SIGNING.md for the five secrets that turn this on.
+  check-signing:
+    runs-on: ubuntu-latest
+    outputs:
+      mac: ${{ steps.check.outputs.mac }}
     steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v3
+      - id: check
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$CSC_LINK" ] && [ -n "$CSC_KEY_PASSWORD" ] && [ -n "$APPLE_ID" ] \
+             && [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            echo "mac=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning title=macOS build skipped::Apple signing secrets are missing; the macOS job is skipped. See SIGNING.md."
+            echo "mac=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Install Node.js, NPM and Yarn
-        uses: actions/setup-node@v3
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: npm
+      - run: npm ci
+      - name: Build & publish Windows installer
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: npm install
-        run: npm ci
-
-      - name: Build/release Electron app
-        uses: samuelmeuli/action-electron-builder@v1
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          mac_certs: ${{ secrets.mac_certs }}
-          mac_certs_password: ${{ secrets.mac_certs_password }}
-          github_token: ${{ secrets.github_token }}
-          release: true
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build & publish Linux AppImage
+        run: npx electron-builder --linux --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  macos:
+    needs: check-signing
+    if: needs.check-signing.outputs.mac == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build, sign, notarize & publish macOS app
+        run: npx electron-builder --mac --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
