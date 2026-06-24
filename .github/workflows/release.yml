@@ -52,21 +52,6 @@ jobs:
           # electron-builder silently skips the upload on an "old" release.
           EP_GH_IGNORE_TIME: "true"
 
-  linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - name: Build & publish Linux AppImage
-        run: npx electron-builder --linux --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EP_GH_IGNORE_TIME: "true"
-
   macos:
     needs: check-signing
     if: needs.check-signing.outputs.mac == 'true'
