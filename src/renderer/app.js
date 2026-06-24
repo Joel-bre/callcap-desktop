@@ -6,6 +6,7 @@ const unpairBtn = document.getElementById("unpair-btn");
 const versionEl = document.getElementById("version");
 
 const recordCard = document.getElementById("record-card");
+const nameInput = document.getElementById("meeting-name");
 const deviceSel = document.getElementById("device");
 const recDot = document.getElementById("rec-dot");
 const timerEl = document.getElementById("timer");
@@ -31,6 +32,19 @@ function fmt(ms) {
   return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
 }
 function tickTimer() { timerEl.textContent = fmt(Date.now() - timerStart); }
+
+function defaultName(d) {
+  return `Desktop recording — ${d.toLocaleString()}`;
+}
+
+// Prefill the name with a date/time default, refreshing it until the user
+// types their own. Once they edit it, we leave their text alone.
+let nameEdited = false;
+function refreshDefaultName() {
+  if (!nameEdited) nameInput.value = defaultName(new Date());
+}
+nameInput.addEventListener("input", () => { nameEdited = nameInput.value.trim().length > 0; });
+refreshDefaultName();
 
 function pickMimeType() {
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
@@ -83,6 +97,7 @@ async function startRecording() {
   recStatus.textContent = "";
   recStatus.className = "muted";
   openMeetingBtn.style.display = "none";
+  refreshDefaultName(); // freshen the timestamp if the user hasn't named it
   const deviceId = deviceSel.value;
 
   // 1) Microphone (your voice). Disable AEC/NS/AGC — otherwise Chromium's echo
@@ -133,6 +148,7 @@ async function startRecording() {
   recordBtn.textContent = "Stop & upload";
   recordBtn.classList.add("danger");
   deviceSel.disabled = true;
+  nameInput.disabled = true;
   if (systemCaptured) {
     captureInfo.textContent = "● Capturing microphone + meeting audio";
     captureInfo.className = "muted ok-text";
@@ -177,7 +193,7 @@ async function onRecordingStop() {
   recStatus.textContent = "Uploading…";
   try {
     const buffer = await blob.arrayBuffer();
-    const title = `Desktop recording — ${new Date(startedAtIso).toLocaleString()}`;
+    const title = nameInput.value.trim() || defaultName(new Date(startedAtIso));
     const res = await window.callcap.uploadRecording({
       buffer,
       mimeType,
@@ -198,8 +214,12 @@ function resetRecordButton() {
   recordBtn.disabled = false;
   recordBtn.textContent = "Start recording";
   deviceSel.disabled = false;
+  nameInput.disabled = false;
   timerEl.textContent = "00:00";
   captureInfo.textContent = "";
+  // Ready the field for the next recording with a fresh default.
+  nameEdited = false;
+  refreshDefaultName();
 }
 
 recordBtn.addEventListener("click", () => {
