@@ -49,7 +49,8 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "notarize": true,
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Callcap records your call audio to transcribe and summarize your meetings."
+        "NSMicrophoneUsageDescription": "Callcap records your microphone to transcribe and summarize your meetings.",
+        "NSScreenCaptureUsageDescription": "Callcap captures system audio so it can transcribe the other participants in your meetings."
       }
     },
     "win": {
