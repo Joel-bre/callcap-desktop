@@ -47,6 +47,10 @@ jobs:
         run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Allow uploading to the release even if a sibling job created it
+          # more than 2h earlier (notarization can be slow). Without this,
+          # electron-builder silently skips the upload on an "old" release.
+          EP_GH_IGNORE_TIME: "true"
 
   linux:
     runs-on: ubuntu-latest
@@ -61,6 +65,7 @@ jobs:
         run: npx electron-builder --linux --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_GH_IGNORE_TIME: "true"
 
   macos:
     needs: check-signing
@@ -77,6 +82,7 @@ jobs:
         run: npx electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_GH_IGNORE_TIME: "true"
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
