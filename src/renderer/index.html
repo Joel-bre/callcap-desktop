@@ -41,6 +41,8 @@
       color: #f8fafc; border: 1px solid #334155; font-size: 13px;
     }
     .muted { color: #94a3b8; font-size: 12px; margin-top: 8px; }
+    .warn { color: #f59e0b; }
+    .ok-text { color: #22c55e; }
     .timer { font-variant-numeric: tabular-nums; font-size: 28px; font-weight: 600; margin: 4px 0; }
     strong { font-size: 14px; }
   </style>
@@ -73,7 +75,12 @@
 
     <button id="record-btn">Start recording</button>
     <button id="open-meeting-btn" class="ghost" style="display:none">Open meeting in browser</button>
+    <div class="muted" id="capture-info"></div>
     <div class="muted" id="rec-status"></div>
+    <div class="muted" style="margin-top:10px">
+      Records your microphone <em>and</em> the meeting audio (everyone else),
+      so the transcript covers both sides of the call — on Zoom, Meet, Teams or any app.
+    </div>
   </div>
 
   <div class="card" id="help-card">

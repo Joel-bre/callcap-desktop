@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, shell, dialog, safeStorage } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, shell, dialog, safeStorage, desktopCapturer } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
@@ -83,11 +83,32 @@ function createWindow() {
     },
   });
 
-  // Allow microphone capture for the recorder; deny everything else.
+  // Allow microphone + display capture for the recorder; deny everything else.
   const ses = mainWindow.webContents.session;
-  const allow = (p) => p === "media" || p === "audioCapture" || p === "microphone";
+  const allow = (p) =>
+    p === "media" || p === "audioCapture" || p === "microphone" || p === "display-capture";
   ses.setPermissionRequestHandler((_wc, permission, callback) => callback(allow(permission)));
   ses.setPermissionCheckHandler((_wc, permission) => allow(permission));
+
+  // The renderer calls getDisplayMedia() to capture system/output audio (the
+  // remote participants). We intercept it here and hand Chromium the special
+  // Electron 'loopback' audio source — a mix of everything the OS is playing.
+  // This is what lets us record the other side of the call without a picker.
+  // (Windows: WASAPI loopback; macOS 13+: ScreenCaptureKit, needs Screen
+  // Recording permission.) A screen video source is required by the API even
+  // though the renderer discards the video track.
+  ses.setDisplayMediaRequestHandler(
+    (_request, callback) => {
+      desktopCapturer
+        .getSources({ types: ["screen"] })
+        .then((sources) => {
+          if (!sources.length) return callback({}); // no screen → renderer falls back to mic-only
+          callback({ video: sources[0], audio: "loopback" });
+        })
+        .catch(() => callback({}));
+    },
+    { useSystemPicker: false },
+  );
 
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
   mainWindow.on("closed", () => { mainWindow = null; });
