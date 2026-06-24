@@ -65,12 +65,6 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
     },
-    "linux": {
-      "target": [{ "target": "AppImage", "arch": ["x64"] }],
-      "category": "AudioVideo",
-      "artifactName": "Callcap.${ext}",
-      "icon": "build/icon.png"
-    },
     "publish": {
       "provider": "github",
       "owner": "Joel-bre",
