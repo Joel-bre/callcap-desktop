@@ -81,9 +81,20 @@ async function listDevices() {
 // 'loopback' audio source. We must request video (the API requires it) and
 // then drop it — only the audio track is kept. Returns a MediaStream with
 // just the system audio, or null if unavailable / denied.
+// Guarded by a timeout: a repeated loopback request can hang without ever
+// resolving, which used to leave the Start button silently doing nothing.
+const SYSTEM_AUDIO_TIMEOUT_MS = 8000;
+
 async function captureSystemAudio() {
+  const request = navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+  const timeout = new Promise((resolve) => setTimeout(() => resolve("timeout"), SYSTEM_AUDIO_TIMEOUT_MS));
   try {
-    const display = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
+    const display = await Promise.race([request, timeout]);
+    if (display === "timeout") {
+      // If it resolves late, release it so the capture doesn't stay open.
+      request.then((s) => s.getTracks().forEach((t) => t.stop())).catch(() => {});
+      return null;
+    }
     display.getVideoTracks().forEach((t) => t.stop());
     const audioTracks = display.getAudioTracks();
     if (audioTracks.length === 0) return null;
@@ -93,7 +104,27 @@ async function captureSystemAudio() {
   }
 }
 
+let starting = false;
+
 async function startRecording() {
+  if (starting) return;
+  starting = true;
+  recordBtn.disabled = true;
+  recordBtn.textContent = "Starting…";
+  try {
+    await beginRecording();
+  } catch (err) {
+    stopAllStreams();
+    mediaRecorder = null;
+    recStatus.textContent = "Could not start recording: " + (err && err.message ? err.message : "unknown error");
+    resetRecordButton();
+  } finally {
+    starting = false;
+    recordBtn.disabled = false;
+  }
+}
+
+async function beginRecording() {
   recStatus.textContent = "";
   recStatus.className = "muted";
   openMeetingBtn.style.display = "none";
@@ -111,8 +142,7 @@ async function startRecording() {
   try {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints });
   } catch (err) {
-    recStatus.textContent = "Microphone access denied or unavailable.";
-    return;
+    throw new Error("microphone access denied or unavailable.");
   }
   listDevices();
 
